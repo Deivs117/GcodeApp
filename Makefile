@@ -2,7 +2,7 @@ BINARY_NAME=flux-gcode-api
 FRONT_DIR=frontend
 BACK_DIR=backend
 
-.PHONY: dev build test lint clean docker-up run-back run-front
+.PHONY: dev build test lint clean docker-up run-back run-front run-frontend
 
 dev:
 	@echo "🚀 Starting development environment..."
@@ -11,7 +11,9 @@ dev:
 run-back:
 	cd $(BACK_DIR) && go run cmd/main.go
 
-run-front:
+run-front: run-frontend
+
+run-frontend:
 	cd $(FRONT_DIR) && npm run dev
 
 test:
