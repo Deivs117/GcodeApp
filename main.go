@@ -13,7 +13,7 @@ func main() {
 	// Definimos las "flags" o banderas que el usuario puede pasar por consola
 	// flag.Bool(nombre, valor_por_defecto, descripción)
 	cleanCodes := flag.Bool("limpiar", false, "Eliminar instrucciones M0 y M6")
-	outputFileName := flag.String("o", "resultado_unido.gcode", "Nombre del archivo de salida")
+	outputFileName := flag.String("o", "resultado_unido.nc", "Nombre del archivo de salida")
 	
 	flag.Parse() // ¡Importante! Sin esto, Go no lee las banderas
 
@@ -65,14 +65,22 @@ func processGcode(path string, writer *bufio.Writer, filter bool) error {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
+		// ... dentro del for scanner.Scan() ...
 		line := scanner.Text()
 		trimmedLine := strings.TrimSpace(strings.ToUpper(line))
 
-		// Lógica de filtrado: Si filter es true, saltamos M0 y M6
 		if filter {
-			// Verificamos si la línea EMPIEZA con el comando (evita falsos positivos en comentarios)
-			if strings.HasPrefix(trimmedLine, "M0") || strings.HasPrefix(trimmedLine, "M6") {
-				continue // Salta a la siguiente línea
+			// Dividimos la línea en "palabras" separadas por espacios
+			// Ej: "M0 ; Pausa" -> ["M0", ";", "Pausa"]
+			campos := strings.Fields(trimmedLine)
+			
+			if len(campos) > 0 {
+				comandoPrincipal := campos[0] // La primera palabra de la línea
+				
+				// Comparamos que sea EXACTAMENTE el comando
+				if comandoPrincipal == "M0" || comandoPrincipal == "M6" {
+					continue // Ignoramos la línea completa
+				}
 			}
 		}
 
