@@ -2,7 +2,7 @@ BINARY_NAME=flux-gcode-api
 FRONT_DIR=frontend
 BACK_DIR=backend
 
-.PHONY: dev build test lint clean docker-up run-back run-front run-frontend
+.PHONY: dev build test lint clean docker-up run-back run-front run-frontend db-up db-down
 
 dev:
 	@echo "🚀 Starting development environment..."
@@ -15,6 +15,14 @@ run-front: run-frontend
 
 run-frontend:
 	cd $(FRONT_DIR) && npm run dev
+
+db-up:
+	@echo "🐘 Starting PostgreSQL..."
+	docker-compose up -d db
+
+db-down:
+	@echo "🛑 Stopping PostgreSQL..."
+	docker-compose stop db
 
 test:
 	@echo "🧪 Running backend unit tests..."
@@ -37,3 +45,4 @@ clean:
 	rm -rf build/
 	rm -rf $(FRONT_DIR)/.next
 	@echo "🧹 Cleanup complete."
+
