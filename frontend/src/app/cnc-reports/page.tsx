@@ -10,8 +10,10 @@ import {
   Clock,
   AlertTriangle,
   Loader2,
+  Pencil,
 } from 'lucide-react'
 import SessionForm, { type SessionFormData } from '@/components/cnc-reports/SessionForm'
+import UpdateSessionModal from '@/components/cnc-reports/UpdateSessionModal'
 import {
   listSessions,
   createSession,
@@ -34,13 +36,6 @@ const STATUS_CONFIG = {
 
 type Status = keyof typeof STATUS_CONFIG
 
-const STATUS_NEXT: Record<Status, Status> = {
-  pending: 'running',
-  running: 'done',
-  failed: 'pending',
-  done: 'pending',
-}
-
 function fmtSec(s: number) {
   const h = Math.floor(s / 3600)
   const m = Math.floor((s % 3600) / 60)
@@ -54,6 +49,7 @@ export default function CncReportsPage() {
   const [pcbVersions, setPcbVersions] = useState<PcbVersion[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
+  const [editSession, setEditSession] = useState<MachiningSession | null>(null)
   const [pdfLoading, setPdfLoading] = useState<string | null>(null)
 
   const fetchAll = useCallback(async () => {
@@ -88,19 +84,17 @@ export default function CncReportsPage() {
     await fetchAll()
   }
 
-  const handleAdvanceStatus = async (session: MachiningSession) => {
-    const next = STATUS_NEXT[session.status as Status] ?? 'pending'
-    const total = session.tracksTimeSec + session.drillsTimeSec + session.cutoutTimeSec
-    await updateSession(session.id, {
-      status: next,
-      tracksTimeSec: session.tracksTimeSec,
-      drillsTimeSec: session.drillsTimeSec,
-      cutoutTimeSec: session.cutoutTimeSec,
-      failureNotes: session.failureNotes,
-      units: session.units,
-    })
+  const handleUpdateSession = async (id: string, payload: {
+    status: string
+    tracksTimeSec: number
+    drillsTimeSec: number
+    cutoutTimeSec: number
+    failureNotes: string
+    units: number
+  }) => {
+    await updateSession(id, payload)
+    setEditSession(null)
     await fetchAll()
-    void total
   }
 
   const handleDeleteSession = async (id: string) => {
@@ -125,9 +119,9 @@ export default function CncReportsPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <ClipboardList className="text-sky-400" size={28} />
-            <h1 className="text-2xl font-bold text-white">CNC Machining Reports</h1>
+            <h1 className="text-2xl font-bold text-white">Machining Sessions</h1>
           </div>
-          <p className="text-slate-400 text-sm">Track PCB machining sessions and export PDF reports</p>
+          <p className="text-slate-400 text-sm">Track PCB machining sessions per client/order and export PDF reports</p>
         </div>
         <button
           onClick={() => setFormOpen(true)}
@@ -178,7 +172,7 @@ export default function CncReportsPage() {
               <thead>
                 <tr className="border-b border-slate-700 bg-slate-900/50">
                   <th className="text-left text-slate-400 font-medium px-4 py-3">Client</th>
-                  <th className="text-left text-slate-400 font-medium px-4 py-3">PCB Version</th>
+                  <th className="text-left text-slate-400 font-medium px-4 py-3">Order / Version</th>
                   <th className="text-left text-slate-400 font-medium px-4 py-3">Units</th>
                   <th className="text-left text-slate-400 font-medium px-4 py-3">Status</th>
                   <th className="text-left text-slate-400 font-medium px-4 py-3">Tracks</th>
@@ -203,18 +197,16 @@ export default function CncReportsPage() {
                         {session.clientName ?? <span className="text-slate-500">—</span>}
                       </td>
                       <td className="px-4 py-3 text-slate-400">
-                        {session.pcbVersion ?? <span className="text-slate-600">—</span>}
+                        {session.pcbVersion
+                          ? <span className="bg-slate-700 text-sky-300 px-2 py-0.5 rounded text-xs font-mono">{session.pcbVersion}</span>
+                          : <span className="text-slate-600">—</span>}
                       </td>
                       <td className="px-4 py-3 text-slate-300">{session.units}</td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleAdvanceStatus(session)}
-                          title="Click to advance status"
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusCfg.color} cursor-pointer hover:opacity-80 transition-opacity`}
-                        >
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusCfg.color}`}>
                           <Icon size={11} />
                           {statusCfg.label}
-                        </button>
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-slate-400 font-mono text-xs">
                         {fmtSec(session.tracksTimeSec)}
@@ -230,6 +222,13 @@ export default function CncReportsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setEditSession(session)}
+                            title="Update session"
+                            className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+                          >
+                            <Pencil size={13} />
+                          </button>
                           <button
                             onClick={() => handleDownloadPdf(session)}
                             disabled={pdfLoading === session.id}
@@ -267,6 +266,15 @@ export default function CncReportsPage() {
         onClose={() => setFormOpen(false)}
         onSubmit={handleCreateSession}
       />
+
+      {/* Update session modal */}
+      {editSession && (
+        <UpdateSessionModal
+          session={editSession}
+          onClose={() => setEditSession(null)}
+          onSubmit={(payload) => handleUpdateSession(editSession.id, payload)}
+        />
+      )}
     </div>
   )
 }

@@ -180,14 +180,17 @@ export default function SessionForm({
           {status === 'failed' && (
             <div>
               <label className="block text-slate-300 text-sm font-medium mb-1">
-                Failure Notes
+                Failure Report <span className="text-red-400">*</span>
               </label>
               <textarea
-                {...register('failureNotes')}
+                {...register('failureNotes', { required: status === 'failed' ? 'Failure report is required when status is Failed' : false })}
                 placeholder="Describe what went wrong — this data will feed future AI vision models."
                 rows={3}
                 className="w-full bg-slate-700 border border-red-800/50 rounded-lg px-3 py-2 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
               />
+              {errors.failureNotes && (
+                <p className="text-red-400 text-xs mt-1">{errors.failureNotes.message}</p>
+              )}
             </div>
           )}
 

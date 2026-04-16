@@ -1,9 +1,15 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Code2, Calendar, ClipboardList, Zap } from 'lucide-react'
+import { Code2, Calendar, ClipboardList, Zap, Users, ShoppingBag, LayoutDashboard } from 'lucide-react'
 
 const navItems = [
+  {
+    href: '/dashboard',
+    label: 'Dashboard',
+    icon: LayoutDashboard,
+    description: 'Overview & quick access',
+  },
   {
     href: '/gcode',
     label: 'G-Code Tool',
@@ -11,16 +17,28 @@ const navItems = [
     description: 'Concatenate & filter NC files',
   },
   {
+    href: '/clients',
+    label: 'Clients',
+    icon: Users,
+    description: 'Customer management',
+  },
+  {
+    href: '/orders',
+    label: 'Orders',
+    icon: ShoppingBag,
+    description: 'Orders & PCB versions',
+  },
+  {
+    href: '/cnc-reports',
+    label: 'Machining Sessions',
+    icon: ClipboardList,
+    description: 'PCB machining logs & PDF export',
+  },
+  {
     href: '/scheduler',
     label: 'Flux Scheduler',
     icon: Calendar,
     description: 'Meeting & calendar management',
-  },
-  {
-    href: '/cnc-reports',
-    label: 'CNC Reports',
-    icon: ClipboardList,
-    description: 'PCB machining logs & PDF export',
   },
 ]
 
@@ -41,7 +59,7 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navItems.map(({ href, label, icon: Icon, description }) => {
-          const active = pathname.startsWith(href)
+          const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
           return (
             <Link
               key={href}

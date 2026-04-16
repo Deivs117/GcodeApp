@@ -54,6 +54,18 @@ export async function deleteMeeting(id: string): Promise<void> {
   await request(`/api/scheduler/meetings/${id}`, { method: 'DELETE' })
 }
 
+export async function updateMeeting(
+  id: string,
+  payload: CreateMeetingPayload,
+  googleToken?: string
+): Promise<void> {
+  await request(
+    `/api/scheduler/meetings/${id}`,
+    { method: 'PUT', body: JSON.stringify(payload) },
+    googleToken
+  )
+}
+
 export async function getAuthUrl(): Promise<{ url: string }> {
   return request<{ url: string }>('/api/scheduler/auth-url')
 }

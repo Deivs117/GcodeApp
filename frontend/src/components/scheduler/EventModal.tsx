@@ -15,6 +15,8 @@ interface EventModalProps {
   open: boolean
   initialStart?: string
   initialEnd?: string
+  initialData?: EventFormData
+  editMode?: boolean
   onClose: () => void
   onSubmit: (data: EventFormData) => Promise<void>
 }
@@ -23,6 +25,8 @@ export default function EventModal({
   open,
   initialStart,
   initialEnd,
+  initialData,
+  editMode = false,
   onClose,
   onSubmit,
 }: EventModalProps) {
@@ -38,11 +42,15 @@ export default function EventModal({
 
   useEffect(() => {
     if (open) {
-      reset()
-      if (initialStart) setValue('startTime', initialStart)
-      if (initialEnd) setValue('endTime', initialEnd)
+      if (initialData) {
+        reset(initialData)
+      } else {
+        reset({ title: '', description: '', startTime: '', endTime: '', attendees: '' })
+        if (initialStart) setValue('startTime', initialStart)
+        if (initialEnd) setValue('endTime', initialEnd)
+      }
     }
-  }, [open, initialStart, initialEnd, reset, setValue])
+  }, [open, initialStart, initialEnd, initialData, reset, setValue])
 
   if (!open) return null
 
@@ -61,7 +69,7 @@ export default function EventModal({
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
           <div className="flex items-center gap-2">
             <Calendar className="text-sky-400" size={20} />
-            <h2 className="text-white font-semibold text-lg">New Meeting</h2>
+            <h2 className="text-white font-semibold text-lg">{editMode ? 'Edit Meeting' : 'New Meeting'}</h2>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
             <X size={20} />
@@ -158,7 +166,7 @@ export default function EventModal({
               disabled={isSubmitting}
               className="flex-1 bg-sky-500 hover:bg-sky-400 disabled:bg-sky-800 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
             >
-              {isSubmitting ? 'Saving…' : 'Create Meeting'}
+              {isSubmitting ? 'Saving…' : editMode ? 'Update Meeting' : 'Create Meeting'}
             </button>
           </div>
         </form>
