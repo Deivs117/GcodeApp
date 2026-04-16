@@ -1,14 +1,50 @@
 # Flux Engineering Hub
 
-**English** | [Español](#español)
+> Full-stack monorepo platform for **Flux Mecatrónica** — integrating PCB production traceability with administrative management under a single unified interface.
 
-A full-stack monorepo platform for **Flux Mecatrónica**, combining three applications under a unified sidebar layout:
+---
 
-| App | Description |
-|-----|-------------|
-| **G-Code Tool** | Concatenate and filter CNC `.nc` / `.gcode` files |
-| **Flux Scheduler** | Weekly calendar with Google Calendar OAuth2 sync |
-| **CNC Reports** | PCB machining session logging with PDF export |
+## Table of Contents
+
+- [Project Overview](#project-overview)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Installation Guide](#installation-guide)
+- [Environment Variables](#environment-variables)
+- [API Documentation](#api-documentation)
+- [Running Tests](#running-tests)
+- [Build](#build)
+
+---
+
+## Project Overview
+
+Flux Engineering Hub is a modular platform composed of **5 integrated applications**:
+
+| App | Route | Description |
+|-----|-------|-------------|
+| **Dashboard** | `/dashboard` | Main entry point with quick navigation cards to all apps |
+| **G-Code Tool** | `/gcode` | Concatenate and filter CNC `.nc` / `.gcode` files |
+| **Clients** | `/clients` | Customer CRUD — name, company, contact details |
+| **Orders** | `/orders` | PCB orders linked to clients, with version tracking (V1, V2.1, …) |
+| **Machining Sessions** | `/cnc-reports` | CNC machining session logging, failure reports, and PDF export |
+| **Flux Scheduler** | `/scheduler` | Weekly calendar with Google Calendar OAuth2 sync |
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | Next.js 15, React 18, TypeScript, Tailwind CSS |
+| **Backend** | Go 1.21+, Fiber v2 |
+| **Database** | PostgreSQL 15+ |
+| **ORM / DB Driver** | pgx v5 (pgxpool) |
+| **Calendar** | react-big-calendar + moment.js |
+| **Forms** | React Hook Form |
+| **PDF Generation** | gofpdf |
+| **Auth** | Google OAuth2 (golang.org/x/oauth2) |
+| **Container** | Docker + Docker Compose |
 
 ---
 
@@ -16,58 +52,54 @@ A full-stack monorepo platform for **Flux Mecatrónica**, combining three applic
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  Next.js 15 Frontend (port 3000)                                        │
-│  Sidebar → /gcode · /scheduler · /cnc-reports                          │
+│  Next.js 15 Frontend  (port 3000)                                       │
+│  /dashboard · /gcode · /clients · /orders · /cnc-reports · /scheduler  │
 └────────────────────────────┬────────────────────────────────────────────┘
                              │ HTTP/JSON
                              ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  Go + Fiber Backend (port 8080)                                         │
+│  Go + Fiber Backend  (port 8080)                                        │
 │  /api/process          — G-Code merge & filter                          │
 │  /api/scheduler/*      — Meetings CRUD + Google Calendar OAuth2         │
-│  /api/cnc/*            — Machining sessions, clients, PCB versions, PDF │
+│  /api/cnc/*            — Clients, Orders, Machining Sessions, PDF       │
 └────────────────────────────┬────────────────────────────────────────────┘
                              │
                              ▼
-                     PostgreSQL (port 5432)
-                     Tables: meetings, clients,
-                             pcb_versions, machining_sessions
+                     PostgreSQL  (port 5432)
+                     Tables: meetings · clients · pcb_versions
+                             machining_sessions
 ```
 
-### Directory structure
+### Directory Structure
 
 ```
 flux-hub/
 ├── backend/
 │   ├── cmd/main.go                    # Fiber HTTP server + route registration
-│   ├── internal/
-│   │   ├── database/db.go             # pgxpool connection + schema migration
-│   │   ├── calendar/handler.go        # Google Calendar OAuth2 + meetings CRUD
-│   │   ├── reports/handler.go         # CNC sessions CRUD + gofpdf PDF generation
-│   │   ├── parser/parser.go           # bufio line parser
-│   │   ├── filter/filter.go           # M0/M6 filter logic
-│   │   └── merger/merger.go           # file merger
-│   ├── pkg/models/gcode.go            # G-Code shared types
-│   ├── go.mod
-│   └── go.sum
+│   └── internal/
+│       ├── database/db.go             # pgxpool connection + schema migration
+│       ├── calendar/handler.go        # Google Calendar OAuth2 + meetings CRUD
+│       ├── reports/handler.go         # Clients/Orders/Sessions CRUD + PDF generation
+│       ├── parser/parser.go           # G-Code line parser
+│       ├── filter/filter.go           # M0/M6 command filter
+│       └── merger/merger.go           # Multi-file merger
 ├── frontend/
 │   └── src/
 │       ├── app/
-│       │   ├── layout.tsx             # Root layout with Sidebar
-│       │   ├── page.tsx               # Redirects to /gcode
-│       │   ├── gcode/page.tsx         # G-Code tool
-│       │   ├── scheduler/page.tsx     # Flux Scheduler
-│       │   └── cnc-reports/page.tsx   # CNC Machining Reports
+│       │   ├── dashboard/page.tsx     # Main dashboard with 5 app cards
+│       │   ├── gcode/page.tsx         # G-Code processing tool
+│       │   ├── clients/page.tsx       # Client management (CRUD)
+│       │   ├── orders/page.tsx        # Order management (CRUD)
+│       │   ├── cnc-reports/page.tsx   # Machining sessions + PDF export
+│       │   └── scheduler/page.tsx     # Calendar + Google OAuth setup guide
 │       ├── components/
-│       │   ├── Sidebar.tsx            # App navigation sidebar
-│       │   ├── Dropzone.tsx           # File drag-and-drop
-│       │   ├── FileList.tsx           # Ordered file list
-│       │   ├── ProcessToggle.tsx      # Toggle switch
+│       │   ├── Sidebar.tsx            # Collapsible navigation sidebar
 │       │   ├── scheduler/
-│       │   │   ├── CalendarView.tsx   # react-big-calendar wrapper
-│       │   │   └── EventModal.tsx     # New-meeting form modal
+│       │   │   ├── CalendarView.tsx   # react-big-calendar (dark theme)
+│       │   │   └── EventModal.tsx     # Create / Edit meeting modal
 │       │   └── cnc-reports/
-│       │       └── SessionForm.tsx    # Machining session form
+│       │       ├── SessionForm.tsx    # Create machining session form
+│       │       └── UpdateSessionModal.tsx  # Update active session + failure report
 │       └── services/
 │           ├── api.ts                 # G-Code API calls
 │           ├── schedulerApi.ts        # Scheduler API calls
@@ -80,146 +112,231 @@ flux-hub/
 
 ---
 
-## Prerequisites
+## Installation Guide
 
-| Tool | Version |
-|------|---------|
-| Go | 1.21+ |
-| Node.js | 18+ |
-| Docker & Docker Compose | 24+ |
-| PostgreSQL | 15+ (or run via Docker) |
+### Prerequisites
+
+| Tool | Minimum Version |
+|------|----------------|
+| Go | 1.21 |
+| Node.js | 18 |
+| Docker | 24 |
+| Docker Compose | 2.x |
+| PostgreSQL | 15 (or via Docker) |
 
 ---
 
-## Quick Start
-
-### 1. Development (local, with DB via Docker)
+### Option A — Local Development (DB via Docker)
 
 ```bash
-# Start PostgreSQL only
+# 1. Clone the repository
+git clone https://github.com/Deivs117/GcodeApp.git
+cd GcodeApp
+
+# 2. Start PostgreSQL
 make db-up
 
-# In separate terminals:
+# 3. Start the backend (in one terminal)
 make run-back   # → http://localhost:8080
+
+# 4. Install frontend dependencies and start Next.js (in another terminal)
+cd frontend && npm install && cd ..
 make run-front  # → http://localhost:3000
 ```
 
-Or start everything in one command (requires DB already running):
+Or start both simultaneously (requires DB already running):
 
 ```bash
 make dev
 ```
 
-### 2. Full Docker Stack
+---
+
+### Option B — Full Docker Stack
 
 ```bash
 make docker-up
-# → Backend:  http://localhost:8080
-# → Frontend: http://localhost:3000
-# → DB:       localhost:5432 (flux/flux/fluxhub)
+# → Frontend:  http://localhost:3000
+# → Backend:   http://localhost:8080
+# → Database:  localhost:5432  (user: flux / password: flux / db: fluxhub)
 ```
 
-### 3. Environment Variables
+> The backend automatically runs schema migrations on startup — no manual SQL required.
 
-For development, create a `.env` file in the project root (used by `docker-compose`):
+---
 
-```bash
-# Required for Google Calendar sync (optional — app works without it)
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
+## Environment Variables
+
+Create a `.env` file in the project root (used by `docker-compose`). The backend reads these directly at startup.
+
+```env
+# ── Database ─────────────────────────────────────────────────────────────────
+DB_HOST=localhost          # PostgreSQL host
+DB_PORT=5432               # PostgreSQL port
+DB_USER=flux               # PostgreSQL user
+DB_PASSWORD=flux           # PostgreSQL password
+DB_NAME=fluxhub            # Database name
+DATABASE_URL=              # Optional: full DSN — overrides the individual DB_* vars
+
+# ── Google Calendar OAuth2 ────────────────────────────────────────────────────
+# Obtain these from https://console.cloud.google.com → APIs & Services → Credentials
+GOOGLE_CLIENT_ID=          # OAuth2 Client ID
+GOOGLE_CLIENT_SECRET=      # OAuth2 Client Secret
 GOOGLE_REDIRECT_URL=http://localhost:8080/api/scheduler/oauth-callback
+
+# ── CORS ─────────────────────────────────────────────────────────────────────
+ALLOWED_ORIGINS=*          # Comma-separated allowed origins (default: *)
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+NEXT_PUBLIC_API_URL=http://localhost:8080   # Backend base URL (Next.js env var)
 ```
 
-Backend reads these env vars directly:
+### Variable Reference
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DB_HOST` | `localhost` | PostgreSQL host |
-| `DB_PORT` | `5432` | PostgreSQL port |
-| `DB_USER` | `flux` | PostgreSQL user |
-| `DB_PASSWORD` | `flux` | PostgreSQL password |
-| `DB_NAME` | `fluxhub` | Database name |
-| `DATABASE_URL` | — | Full DSN (overrides above) |
-| `GOOGLE_CLIENT_ID` | — | Google OAuth2 client ID |
-| `GOOGLE_CLIENT_SECRET` | — | Google OAuth2 secret |
-| `GOOGLE_REDIRECT_URL` | — | OAuth2 redirect URI |
-| `ALLOWED_ORIGINS` | `*` | CORS allowed origins |
+| Variable | Default | Required | Description |
+|----------|---------|----------|-------------|
+| `DB_HOST` | `localhost` | Yes | PostgreSQL host |
+| `DB_PORT` | `5432` | Yes | PostgreSQL port |
+| `DB_USER` | `flux` | Yes | PostgreSQL username |
+| `DB_PASSWORD` | `flux` | Yes | PostgreSQL password |
+| `DB_NAME` | `fluxhub` | Yes | Database name |
+| `DATABASE_URL` | — | No | Full connection DSN; overrides individual DB vars |
+| `GOOGLE_CLIENT_ID` | — | No* | Google OAuth2 Client ID |
+| `GOOGLE_CLIENT_SECRET` | — | No* | Google OAuth2 Client Secret |
+| `GOOGLE_REDIRECT_URL` | — | No* | OAuth2 redirect URI |
+| `ALLOWED_ORIGINS` | `*` | No | CORS allowed origins |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8080` | No | Backend URL for Next.js |
 
----
-
-## Apps
-
-### 🛠️ G-Code Tool (`/gcode`)
-
-Upload multiple `.nc` or `.gcode` files, drag-and-drop to reorder, optionally strip exact `M0`/`M6` commands (tokenized comparison — `M03`, `M04`, `M06` are preserved), then download the merged result.
-
-### 🗓️ Flux Scheduler (`/scheduler`)
-
-- **Weekly calendar** with `react-big-calendar` (month/week/day views)
-- **Today highlighted** automatically
-- **Double-click / slot select** on any time slot opens the "New Meeting" modal with pre-filled times
-- **Attendees** — add email addresses; they will receive Google Calendar invitations if OAuth2 is configured
-- **Google Calendar sync** — click "Connect Google", authorise, paste the returned token; new meetings are automatically pushed to the primary calendar
-- **Persistent** — all meetings are stored in PostgreSQL
-
-### 📋 CNC Machining Reports (`/cnc-reports`)
-
-- **New Session** form (React Hook Form) with fields for client, PCB version, units, status, Tracks/Drills/Cutout time, and failure notes
-- **Status workflow**: Por empezar → Maquinando → Finalizado (click status badge to advance)
-- **PDF export** — click the download icon on any session; generates `YYYYMMDD_Client_Version.pdf` using `gofpdf` on the backend
-- **Failure notes** — shown when status is "Fallo"; provides structured data for future AI vision model training
+> \* Required only for Google Calendar sync. All other features work without these.
 
 ---
 
-## API Reference
+## API Documentation
 
 ### Health
 
 ```
-GET /health → { "status": "ok" }
-```
-
-### G-Code Processing
-
-```
-POST /api/process   multipart/form-data
-  files[]           .nc / .gcode files
-  order             JSON string array — merge order
-  filter_m0m6       "true" to strip exact M0/M6 tokens
-```
-
-### Scheduler
-
-```
-GET    /api/scheduler/auth-url          → { url }
-GET    /api/scheduler/oauth-callback    OAuth2 redirect handler
-GET    /api/scheduler/meetings          → Meeting[]
-POST   /api/scheduler/meetings          Create meeting (X-Google-Token header for sync)
-GET    /api/scheduler/meetings/:id      → Meeting
-DELETE /api/scheduler/meetings/:id      Delete
-```
-
-### CNC Reports
-
-```
-GET    /api/cnc/clients                 → Client[]
-POST   /api/cnc/clients                 Create client
-GET    /api/cnc/pcb-versions            → PcbVersion[]  (?clientId=...)
-POST   /api/cnc/pcb-versions            Create PCB version
-GET    /api/cnc/sessions                → MachiningSession[]
-POST   /api/cnc/sessions                Create session
-PUT    /api/cnc/sessions/:id            Update session (status, times, notes)
-DELETE /api/cnc/sessions/:id            Delete
-GET    /api/cnc/sessions/:id/pdf        Download PDF report
+GET /health
+→ { "status": "ok" }
 ```
 
 ---
 
-## Tests
+### G-Code Processing
+
+```
+POST /api/process                  multipart/form-data
+  files[]         .nc / .gcode files to merge
+  order           JSON string array — explicit merge order by filename
+  filter_m0m6     "true" to strip exact M0/M6 tokens (M03, M04, M06 are preserved)
+
+→ { mergedContent: string, fileCount: number, ... }
+```
+
+---
+
+### Scheduler — Meetings
+
+```
+GET    /api/scheduler/auth-url
+→ { url: string }  — Google OAuth2 authorization URL
+
+GET    /api/scheduler/oauth-callback?code=...
+→ { token: string, message: string }  — OAuth2 token exchange
+
+GET    /api/scheduler/meetings
+→ Meeting[]
+
+POST   /api/scheduler/meetings
+  Body: { title, description, startTime (RFC3339), endTime (RFC3339), attendees[] }
+  Header: X-Google-Token  (optional — enables Google Calendar sync)
+→ { id, googleEventId, message }
+
+GET    /api/scheduler/meetings/:id
+→ Meeting
+
+PUT    /api/scheduler/meetings/:id
+  Body: { title, description, startTime, endTime, attendees[] }
+→ { message: "Meeting updated" }
+
+DELETE /api/scheduler/meetings/:id
+→ { message: "Meeting deleted" }
+```
+
+---
+
+### CNC — Clients
+
+```
+GET    /api/cnc/clients
+→ Client[]
+
+POST   /api/cnc/clients
+  Body: { name*, company, contact, email }
+→ { id }
+
+PUT    /api/cnc/clients/:id
+  Body: { name*, company, contact, email }
+→ { message: "Client updated" }
+
+DELETE /api/cnc/clients/:id
+→ { message: "Client deleted" }
+```
+
+---
+
+### CNC — Orders (PCB Versions)
+
+```
+GET    /api/cnc/pcb-versions[?clientId=...]
+→ PcbVersion[]
+
+POST   /api/cnc/pcb-versions
+  Body: { version*, orderNumber, clientId* }
+→ { id }
+
+PUT    /api/cnc/pcb-versions/:id
+  Body: { version*, orderNumber, clientId }
+→ { message: "Order updated" }
+
+DELETE /api/cnc/pcb-versions/:id
+→ { message: "Order deleted" }
+```
+
+---
+
+### CNC — Machining Sessions
+
+```
+GET    /api/cnc/sessions
+→ MachiningSession[]  (joined with client name and order version)
+
+POST   /api/cnc/sessions
+  Body: { clientId, pcbVersionId, units*, status, tracksTimeSec,
+          drillsTimeSec, cutoutTimeSec, failureNotes }
+→ { id }
+
+PUT    /api/cnc/sessions/:id
+  Body: { status*, units*, tracksTimeSec, drillsTimeSec, cutoutTimeSec,
+          failureNotes (required when status="failed") }
+→ { message: "Session updated" }
+
+DELETE /api/cnc/sessions/:id
+→ { message: "Session deleted" }
+
+GET    /api/cnc/sessions/:id/pdf
+→ application/pdf  — Professional PDF report for the session
+```
+
+> Fields marked `*` are required.
+
+---
+
+## Running Tests
 
 ```bash
 make test
-# 11 tests across filter + merger packages — all PASS
+# Runs 11 unit tests across the filter and merger packages — all PASS
 ```
 
 ---
@@ -228,88 +345,24 @@ make test
 
 ```bash
 make build
-# Binary → build/flux-gcode-api
-# Next.js → frontend/.next
+# → Go binary:    build/flux-gcode-api
+# → Next.js app:  frontend/.next
 ```
 
----
-
----
-
-## Español
-
-# Flux Engineering Hub
-
-Monorepo full-stack para **Flux Mecatrónica** con tres apps bajo un layout de barra lateral unificada:
-
-| App | Descripción |
-|-----|-------------|
-| **G-Code Tool** | Concatenar y filtrar archivos CNC `.nc` / `.gcode` |
-| **Flux Scheduler** | Calendario semanal con sincronización Google Calendar (OAuth2) |
-| **CNC Reports** | Registro de sesiones de maquinado con exportación PDF |
-
----
-
-## Arquitectura
-
-```
-Frontend Next.js 15 (puerto 3000)
-  Sidebar → /gcode · /scheduler · /cnc-reports
-     │
-     ▼
-Backend Go + Fiber (puerto 8080)
-  /api/process · /api/scheduler/* · /api/cnc/*
-     │
-     ▼
-PostgreSQL (puerto 5432)
-```
-
----
-
-## Inicio rápido
+### Other Makefile targets
 
 ```bash
-# Solo PostgreSQL vía Docker, resto local:
-make db-up
-make run-back   # http://localhost:8080
-make run-front  # http://localhost:3000
-
-# Todo con Docker:
-make docker-up
+make dev          # Start backend + frontend concurrently (requires DB running)
+make run-back     # Backend only
+make run-front    # Frontend only
+make db-up        # Start PostgreSQL via Docker Compose
+make db-down      # Stop PostgreSQL
+make docker-up    # Full Docker stack (backend + frontend + DB)
+make lint         # go fmt + next lint
+make clean        # Remove build artifacts
 ```
 
 ---
 
-## Apps
-
-### G-Code Tool
-Carga archivos `.nc`/`.gcode`, reordénalos, filtra comandos `M0`/`M6` exactos y descarga el resultado fusionado.
-
-### Flux Scheduler
-Vista semanal (`react-big-calendar`), día actual resaltado, doble clic en franja → modal de creación con horario pre-rellenado, soporte de invitados por correo e integración Google Calendar vía OAuth2. Persistencia en PostgreSQL.
-
-### CNC Reports
-Formulario (React Hook Form) con campos de Cliente, Versión PCB, Unidades, Estado (Por empezar / Maquinando / Fallo / Finalizado), tiempos de Pistas/Drills/Cutout y notas de fallo. Generación de PDF `FECHA_CLIENTE_VERSION.pdf` vía `gofpdf` en el backend.
-
----
-
-## Variables de entorno
-
-| Variable | Default | Descripción |
-|----------|---------|-------------|
-| `DB_HOST` | `localhost` | Host PostgreSQL |
-| `DB_USER` / `DB_PASSWORD` / `DB_NAME` | `flux/flux/fluxhub` | Credenciales |
-| `GOOGLE_CLIENT_ID` | — | OAuth2 Google |
-| `GOOGLE_CLIENT_SECRET` | — | OAuth2 Google |
-| `GOOGLE_REDIRECT_URL` | — | URI de redirección OAuth2 |
-
----
-
-## Pruebas
-
-```bash
-make test
-```
-
-11 pruebas unitarias en los paquetes `filter` y `merger` — todas PASAN.
+*Flux Mecatrónica © 2025*
 

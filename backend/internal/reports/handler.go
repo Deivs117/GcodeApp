@@ -57,23 +57,26 @@ type UpdateSessionRequest struct {
 type Client struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
+	Company   string    `json:"company"`
+	Contact   string    `json:"contact"`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// PcbVersion represents a PCB design version.
+// PcbVersion represents a PCB design version / order.
 type PcbVersion struct {
-	ID        string    `json:"id"`
-	Version   string    `json:"version"`
-	ClientID  string    `json:"clientId"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID          string    `json:"id"`
+	Version     string    `json:"version"`
+	OrderNumber string    `json:"orderNumber"`
+	ClientID    string    `json:"clientId"`
+	CreatedAt   time.Time `json:"createdAt"`
 }
 
 // --- Client handlers ---------------------------------------------------
 
 func HandleListClients(c *fiber.Ctx) error {
 	rows, err := database.Pool.Query(context.Background(),
-		"SELECT id, name, COALESCE(email,''), created_at FROM clients ORDER BY name ASC")
+		"SELECT id, name, COALESCE(company,''), COALESCE(contact,''), COALESCE(email,''), created_at FROM clients ORDER BY name ASC")
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -82,7 +85,7 @@ func HandleListClients(c *fiber.Ctx) error {
 	clients := []Client{}
 	for rows.Next() {
 		var cl Client
-		if err := rows.Scan(&cl.ID, &cl.Name, &cl.Email, &cl.CreatedAt); err != nil {
+		if err := rows.Scan(&cl.ID, &cl.Name, &cl.Company, &cl.Contact, &cl.Email, &cl.CreatedAt); err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 		}
 		clients = append(clients, cl)
@@ -92,8 +95,10 @@ func HandleListClients(c *fiber.Ctx) error {
 
 func HandleCreateClient(c *fiber.Ctx) error {
 	var req struct {
-		Name  string `json:"name"`
-		Email string `json:"email"`
+		Name    string `json:"name"`
+		Company string `json:"company"`
+		Contact string `json:"contact"`
+		Email   string `json:"email"`
 	}
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
@@ -103,15 +108,54 @@ func HandleCreateClient(c *fiber.Ctx) error {
 	}
 	var id string
 	err := database.Pool.QueryRow(context.Background(),
-		"INSERT INTO clients (name, email) VALUES ($1,$2) RETURNING id",
-		req.Name, req.Email).Scan(&id)
+		"INSERT INTO clients (name, company, contact, email) VALUES ($1,$2,$3,$4) RETURNING id",
+		req.Name, req.Company, req.Contact, req.Email).Scan(&id)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.Status(201).JSON(fiber.Map{"id": id})
 }
 
-// --- PCB version handlers ----------------------------------------------
+func HandleUpdateClient(c *fiber.Ctx) error {
+	id := c.Params("id")
+	var req struct {
+		Name    string `json:"name"`
+		Company string `json:"company"`
+		Contact string `json:"contact"`
+		Email   string `json:"email"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
+	}
+	if req.Name == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "name is required"})
+	}
+	tag, err := database.Pool.Exec(context.Background(),
+		"UPDATE clients SET name=$1, company=$2, contact=$3, email=$4 WHERE id=$5",
+		req.Name, req.Company, req.Contact, req.Email, id)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	if tag.RowsAffected() == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "client not found"})
+	}
+	return c.JSON(fiber.Map{"message": "Client updated"})
+}
+
+func HandleDeleteClient(c *fiber.Ctx) error {
+	id := c.Params("id")
+	tag, err := database.Pool.Exec(context.Background(),
+		"DELETE FROM clients WHERE id=$1", id)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	if tag.RowsAffected() == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "client not found"})
+	}
+	return c.JSON(fiber.Map{"message": "Client deleted"})
+}
+
+// --- PCB version / Order handlers ----------------------------------------------
 
 func HandleListPcbVersions(c *fiber.Ctx) error {
 	clientID := c.Query("clientId")
@@ -119,11 +163,11 @@ func HandleListPcbVersions(c *fiber.Ctx) error {
 	var err error
 	if clientID != "" {
 		rows, err = database.Pool.Query(context.Background(),
-			"SELECT id, version, client_id, created_at FROM pcb_versions WHERE client_id=$1 ORDER BY version ASC",
+			"SELECT id, version, COALESCE(order_number,''), client_id, created_at FROM pcb_versions WHERE client_id=$1 ORDER BY version ASC",
 			clientID)
 	} else {
 		rows, err = database.Pool.Query(context.Background(),
-			"SELECT id, version, client_id, created_at FROM pcb_versions ORDER BY version ASC")
+			"SELECT id, version, COALESCE(order_number,''), client_id, created_at FROM pcb_versions ORDER BY version ASC")
 	}
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
@@ -133,7 +177,7 @@ func HandleListPcbVersions(c *fiber.Ctx) error {
 	versions := []PcbVersion{}
 	for rows.Next() {
 		var v PcbVersion
-		if err := rows.Scan(&v.ID, &v.Version, &v.ClientID, &v.CreatedAt); err != nil {
+		if err := rows.Scan(&v.ID, &v.Version, &v.OrderNumber, &v.ClientID, &v.CreatedAt); err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 		}
 		versions = append(versions, v)
@@ -143,8 +187,9 @@ func HandleListPcbVersions(c *fiber.Ctx) error {
 
 func HandleCreatePcbVersion(c *fiber.Ctx) error {
 	var req struct {
-		Version  string `json:"version"`
-		ClientID string `json:"clientId"`
+		Version     string `json:"version"`
+		OrderNumber string `json:"orderNumber"`
+		ClientID    string `json:"clientId"`
 	}
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
@@ -154,12 +199,50 @@ func HandleCreatePcbVersion(c *fiber.Ctx) error {
 	}
 	var id string
 	err := database.Pool.QueryRow(context.Background(),
-		"INSERT INTO pcb_versions (version, client_id) VALUES ($1,$2) RETURNING id",
-		req.Version, req.ClientID).Scan(&id)
+		"INSERT INTO pcb_versions (version, order_number, client_id) VALUES ($1,$2,$3) RETURNING id",
+		req.Version, req.OrderNumber, req.ClientID).Scan(&id)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.Status(201).JSON(fiber.Map{"id": id})
+}
+
+func HandleUpdatePcbVersion(c *fiber.Ctx) error {
+	id := c.Params("id")
+	var req struct {
+		Version     string `json:"version"`
+		OrderNumber string `json:"orderNumber"`
+		ClientID    string `json:"clientId"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid body"})
+	}
+	if req.Version == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "version is required"})
+	}
+	tag, err := database.Pool.Exec(context.Background(),
+		"UPDATE pcb_versions SET version=$1, order_number=$2, client_id=$3 WHERE id=$4",
+		req.Version, req.OrderNumber, req.ClientID, id)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	if tag.RowsAffected() == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "order not found"})
+	}
+	return c.JSON(fiber.Map{"message": "Order updated"})
+}
+
+func HandleDeletePcbVersion(c *fiber.Ctx) error {
+	id := c.Params("id")
+	tag, err := database.Pool.Exec(context.Background(),
+		"DELETE FROM pcb_versions WHERE id=$1", id)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	if tag.RowsAffected() == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "order not found"})
+	}
+	return c.JSON(fiber.Map{"message": "Order deleted"})
 }
 
 // --- Session handlers --------------------------------------------------

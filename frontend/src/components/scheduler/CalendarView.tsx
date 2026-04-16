@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { Calendar, momentLocalizer, View, SlotInfo } from 'react-big-calendar'
 import moment from 'moment'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Pencil } from 'lucide-react'
 import type { Meeting } from '@/services/schedulerApi'
 
 const localizer = momentLocalizer(moment)
@@ -12,12 +12,14 @@ interface CalendarViewProps {
   meetings: Meeting[]
   onSlotSelect: (start: Date, end: Date) => void
   onDeleteMeeting: (id: string) => void
+  onEditMeeting: (meeting: Meeting) => void
 }
 
 export default function CalendarView({
   meetings,
   onSlotSelect,
   onDeleteMeeting,
+  onEditMeeting,
 }: CalendarViewProps) {
   const [view, setView] = useState<View>('week')
   const [date, setDate] = useState(new Date())
@@ -136,16 +138,28 @@ export default function CalendarView({
             )}
           </div>
 
-          <button
-            onClick={() => {
-              onDeleteMeeting(selectedEvent.id)
-              setSelectedEvent(null)
-            }}
-            className="w-full flex items-center justify-center gap-2 bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-800/50 rounded-lg py-2 text-sm transition-colors"
-          >
-            <Trash2 size={14} />
-            Delete Meeting
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                onEditMeeting(selectedEvent)
+                setSelectedEvent(null)
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600 rounded-lg py-2 text-sm transition-colors"
+            >
+              <Pencil size={14} />
+              Edit Meeting
+            </button>
+            <button
+              onClick={() => {
+                onDeleteMeeting(selectedEvent.id)
+                setSelectedEvent(null)
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-red-900/30 hover:bg-red-900/50 text-red-400 border border-red-800/50 rounded-lg py-2 text-sm transition-colors"
+            >
+              <Trash2 size={14} />
+              Delete Meeting
+            </button>
+          </div>
         </div>
       )}
     </div>

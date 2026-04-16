@@ -50,6 +50,15 @@ type CreateMeetingRequest struct {
 	Attendees   []string `json:"attendees"`
 }
 
+// UpdateMeetingRequest is the JSON body for updating a meeting.
+type UpdateMeetingRequest struct {
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	StartTime   string   `json:"startTime"` // RFC3339
+	EndTime     string   `json:"endTime"`   // RFC3339
+	Attendees   []string `json:"attendees"`
+}
+
 // --- Handlers ----------------------------------------------------------
 
 // HandleGetAuthURL returns the Google OAuth2 authorization URL.
@@ -202,6 +211,43 @@ func HandleGetMeeting(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "query failed: " + err.Error()})
 	}
 	return c.JSON(m)
+}
+
+// HandleUpdateMeeting updates an existing meeting.
+func HandleUpdateMeeting(c *fiber.Ctx) error {
+	id := c.Params("id")
+	var req UpdateMeetingRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	if req.Title == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "title is required"})
+	}
+
+	start, err := time.Parse(time.RFC3339, req.StartTime)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid startTime (use RFC3339)"})
+	}
+	end, err := time.Parse(time.RFC3339, req.EndTime)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid endTime (use RFC3339)"})
+	}
+	if !end.After(start) {
+		return c.Status(400).JSON(fiber.Map{"error": "endTime must be after startTime"})
+	}
+
+	tag, err := database.Pool.Exec(context.Background(), `
+		UPDATE meetings
+		SET title=$1, description=$2, start_time=$3, end_time=$4, attendees=$5
+		WHERE id=$6
+	`, req.Title, req.Description, start, end, req.Attendees, id)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "update failed: " + err.Error()})
+	}
+	if tag.RowsAffected() == 0 {
+		return c.Status(404).JSON(fiber.Map{"error": "meeting not found"})
+	}
+	return c.JSON(fiber.Map{"message": "Meeting updated"})
 }
 
 // syncToGoogleCalendar creates an event in Google Calendar using the stored OAuth2 token.

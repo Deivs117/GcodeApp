@@ -3,6 +3,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 export interface Client {
   id: string
   name: string
+  company: string
+  contact: string
   email: string
   createdAt: string
 }
@@ -10,6 +12,7 @@ export interface Client {
 export interface PcbVersion {
   id: string
   version: string
+  orderNumber: string
   clientId: string
   createdAt: string
 }
@@ -53,14 +56,44 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
+// ── Clients ─────────────────────────────────────────────────────────────────
+
 export async function listClients(): Promise<Client[]> {
   return request<Client[]>('/api/cnc/clients')
 }
+
+export async function createClient(payload: Omit<Client, 'id' | 'createdAt'>): Promise<{ id: string }> {
+  return request('/api/cnc/clients', { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export async function updateClient(id: string, payload: Omit<Client, 'id' | 'createdAt'>): Promise<void> {
+  await request(`/api/cnc/clients/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
+}
+
+export async function deleteClient(id: string): Promise<void> {
+  await request(`/api/cnc/clients/${id}`, { method: 'DELETE' })
+}
+
+// ── Orders (PCB Versions) ────────────────────────────────────────────────────
 
 export async function listPcbVersions(clientId?: string): Promise<PcbVersion[]> {
   const query = clientId ? `?clientId=${clientId}` : ''
   return request<PcbVersion[]>(`/api/cnc/pcb-versions${query}`)
 }
+
+export async function createPcbVersion(payload: Omit<PcbVersion, 'id' | 'createdAt'>): Promise<{ id: string }> {
+  return request('/api/cnc/pcb-versions', { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export async function updatePcbVersion(id: string, payload: Omit<PcbVersion, 'id' | 'createdAt'>): Promise<void> {
+  await request(`/api/cnc/pcb-versions/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
+}
+
+export async function deletePcbVersion(id: string): Promise<void> {
+  await request(`/api/cnc/pcb-versions/${id}`, { method: 'DELETE' })
+}
+
+// ── Sessions ──────────────────────────────────────────────────────────────────
 
 export async function listSessions(): Promise<MachiningSession[]> {
   return request<MachiningSession[]>('/api/cnc/sessions')

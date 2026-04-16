@@ -82,10 +82,10 @@ CREATE TABLE IF NOT EXISTS clients (
 );
 
 CREATE TABLE IF NOT EXISTS pcb_versions (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    version    TEXT NOT NULL,
-    client_id  UUID REFERENCES clients(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    version      TEXT NOT NULL,
+    client_id    UUID REFERENCES clients(id) ON DELETE CASCADE,
+    created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS machining_sessions (
@@ -103,4 +103,9 @@ CREATE TABLE IF NOT EXISTS machining_sessions (
     finished_at     TIMESTAMPTZ,
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Phase 2 migrations: additive columns (safe to run repeatedly)
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS company TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS contact TEXT;
+ALTER TABLE pcb_versions ADD COLUMN IF NOT EXISTS order_number TEXT;
 `
